@@ -1,0 +1,2 @@
+# Dự án ưu tiên sử dụng thư viện chuẩn của Python (Python 3.11+), hiện chưa có dependency bên ngoài.
+
