@@ -4,7 +4,7 @@
 
 - **Đề tài:** Chủ đề 04 – Quản lý kho sản phẩm bằng Python OOP.
 - **Hình thức:** Bài tập lớn nhóm 6 sinh viên, xây dựng ứng dụng quản lý kho sản phẩm chạy trên Console (CLI).
-- **Trạng thái dự án:** **Đang khởi tạo** (mới hoàn thành bộ khung thư mục, tài liệu hướng dẫn và menu khởi động tối thiểu; các chức năng nghiệp vụ đang được đánh dấu `TODO`).
+- **Trạng thái dự án:** **Đang phát triển** — Đã hoàn thành hệ thống Menu Console hoàn chỉnh (menu chính, 7 menu con, kiểm tra đầu vào, xác nhận thoát an toàn) và bản đề xuất hợp đồng API trên nhánh `feature/main-menu`; các module nghiệp vụ (`models/`, `services/`, `storage/`, bộ unit test nghiệp vụ) vẫn đang được các thành viên phát triển.
 
 ## Mục tiêu dự án
 
@@ -62,6 +62,7 @@ python-inventory-management-system/
 │
 ├── cli/
 │   ├── __init__.py
+│   ├── input_helpers.py
 │   └── menu.py
 │
 ├── tests/
@@ -75,11 +76,13 @@ python-inventory-management-system/
 │   └── .gitkeep
 │
 ├── docs/
+│   ├── API_CONTRACT.md
 │   ├── README.md
 │   ├── uml/
 │   │   └── .gitkeep
 │   ├── flowcharts/
-│   │   └── .gitkeep
+│   │   ├── .gitkeep
+│   │   └── main_menu_flowchart.md
 │   ├── screenshots/
 │   │   └── .gitkeep
 │   └── reports/
@@ -102,10 +105,10 @@ cd python-inventory-management-system
 Đảm bảo máy đã cài đặt Python 3.11 trở lên, sau đó chạy từ thư mục gốc của dự án:
 
 ```bash
-python main.py
+python3 main.py
 ```
 
-*(Trên một số hệ điều hành Linux/macOS, sử dụng `python3 main.py` nếu lệnh `python` chưa được liên kết.)*
+*(Hoặc `python main.py` nếu lệnh `python` đã được liên kết tới Python 3.11+.)*
 
 ## Hướng dẫn chạy kiểm thử
 
@@ -123,12 +126,12 @@ python -m unittest discover -s tests -v
 
 ## Danh sách chức năng dự kiến phát triển
 
+- [x] Giao diện Console menu hoàn chỉnh (menu chính, 7 menu con, xử lý nhập sai, xác nhận thoát và chuẩn bị khung tích hợp `AppContext`).
 - [ ] Mô hình hóa sản phẩm (`Product`, `FoodProduct`, `ElectronicProduct`) với đóng gói, kế thừa, đa hình và validate dữ liệu.
 - [ ] Quản lý nhà cung cấp (`Supplier`).
 - [ ] Quản lý danh mục sản phẩm CRUD, tìm kiếm (theo mã, tên, nhà cung cấp) và sắp xếp (theo giá, số lượng tăng/giảm dần).
 - [ ] Nghiệp vụ nhập/xuất kho và lưu lịch sử giao dịch (`StockTransaction`, `StockService`).
 - [ ] Thống kê tổng giá trị tồn kho, hàng sắp hết, thực phẩm gần hết hạn và bảo hành thiết bị điện tử (`ReportService`).
 - [ ] Lưu/đọc dữ liệu sản phẩm bằng JSON (khôi phục đúng kiểu đối tượng) và xuất báo cáo CSV.
-- [ ] Giao diện Console menu đầy đủ điều hướng các chức năng.
 - [ ] Bộ kiểm thử `unittest` (tối thiểu 10 test case cho ràng buộc nghiệp vụ và lỗi dữ liệu).
 
