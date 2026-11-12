@@ -34,6 +34,8 @@
 | 5 | **Minh** | Nhà cung cấp & thống kê | `feature/supplier-reports` | `models/supplier.py`, `services/report_service.py` (`Supplier`, `ReportService`) |
 | 6 | **Tú** | Lưu dữ liệu & kiểm thử | `feature/storage-testing` | `storage/storage.py`, `tests/` (JSON/CSV và bộ unit test) |
 
+> Xem chi tiết yêu cầu từng lớp, phương thức, tiêu chí nghiệm thu và checklist của 6 thành viên tại [`docs/TASK_ASSIGNMENT.md`](docs/TASK_ASSIGNMENT.md).
+
 ## Cấu trúc thư mục
 
 ```text
@@ -78,6 +80,7 @@ python-inventory-management-system/
 ├── docs/
 │   ├── API_CONTRACT.md
 │   ├── README.md
+│   ├── TASK_ASSIGNMENT.md
 │   ├── uml/
 │   │   └── .gitkeep
 │   ├── flowcharts/
