@@ -11,3 +11,43 @@ TODO (Chi):
 - [ ] Cài đặt `__str__()` để hiển thị lịch sử giao dịch rõ ràng trên Console.
 """
 
+from datetime import datetime
+
+class StockTransaction:
+    """Module định nghĩa mô hình Giao dịch kho (StockTransaction)."""
+    
+    def __init__(self, transaction_id: str, product_id: str, transaction_type: str, quantity: int, note: str = ""):
+        self.transaction_id = transaction_id
+        self.product_id = product_id
+        
+        # Kiểm tra loại giao dịch hợp lệ
+        trans_type_upper = transaction_type.upper()
+        if trans_type_upper not in ["IMPORT", "EXPORT"]:
+            raise ValueError("Loại giao dịch phải là 'IMPORT' (Nhập) hoặc 'EXPORT' (Xuất).")
+        self.transaction_type = trans_type_upper
+        
+        # Kiểm tra số lượng hợp lệ (số lượng > 0)
+        if not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng giao dịch phải là số nguyên lớn hơn 0.")
+        self.quantity = quantity
+        
+        self.timestamp = datetime.now()
+        self.note = note
+
+    def to_dict(self):
+        """Chuyển đổi giao dịch thành dạng dictionary để lưu trữ file/JSON."""
+        return {
+            "transaction_id": self.transaction_id,
+            "product_id": self.product_id,
+            "transaction_type": self.transaction_type,
+            "quantity": self.quantity,
+            "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            "note": self.note
+        }
+
+    def __str__(self):
+        """Hiển thị lịch sử giao dịch rõ ràng trên Console."""
+        type_str = "Nhập kho" if self.transaction_type == "IMPORT" else "Xuất kho"
+        time_str = self.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        return f"[{time_str}] Mã GD: {self.transaction_id} | {type_str} | Sản phẩm: {self.product_id} | Số lượng: {self.quantity} | Ghi chú: {self.note}"
+    
