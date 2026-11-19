@@ -1,31 +1,68 @@
-"""Module quản lý danh mục sản phẩm trong kho (CRUD, tìm kiếm, sắp xếp).
+"""CRUD, tìm kiếm và sắp xếp danh sách sản phẩm."""
 
-Người phụ trách: Thành viên 3 - Sơn (nhánh `feature/product-management`).
+from __future__ import annotations
 
-Lớp dự kiến triển khai:
-- `InventoryManager`
+from models.product import Product
 
-Các phương thức dự kiến:
-- `add_product()`
-- `update_product()`
-- `delete_product()`
-- `get_all_products()`
-- `search_product()`
-- `sort_products()`
 
-Yêu cầu nghiệp vụ:
-- Không được thêm sản phẩm trùng mã.
-- Kiểm tra tính hợp lệ của dữ liệu trước khi cập nhật.
-- Kiểm tra dữ liệu liên quan trước khi xóa sản phẩm.
-- Hỗ trợ tìm kiếm theo mã sản phẩm, tên sản phẩm hoặc nhà cung cấp.
-- Hỗ trợ sắp xếp theo giá và số lượng (tăng dần / giảm dần).
-- Xử lý an toàn khi danh sách sản phẩm đang rỗng.
+class InventoryManager:
+    def __init__(self, products: list[Product] | None = None) -> None:
+        self._products: dict[str, Product] = {}
+        for product in products or []:
+            self.add_product(product)
 
-TODO (Sơn):
-- [ ] Cài đặt lớp `InventoryManager` quản lý danh sách đối tượng sản phẩm.
-- [ ] Cài đặt `add_product()` có kiểm tra trùng mã và tính hợp lệ của sản phẩm.
-- [ ] Cài đặt `update_product()` có kiểm tra tồn tại và dữ liệu mới trước khi cập nhật.
-- [ ] Cài đặt `delete_product()` có kiểm tra ràng buộc liên quan trước khi xóa.
-- [ ] Cài đặt `get_all_products()`, `search_product()` và `sort_products()` xử lý tốt trường hợp danh sách rỗng.
-"""
+    def add_product(self, product: Product) -> None:
+        if not isinstance(product, Product):
+            raise TypeError("Thêm phải là đối tượng Product")
+        if product.product_id in self._products:
+            raise ValueError(f"Mã sản phẩm đã tồn tại: {product.product_id}")
+        if not product.is_valid():
+            raise ValueError("Sản phẩm không hợp lệ")
+        self._products[product.product_id] = product
 
+    def update_product(self, product_id: str, **fields: object) -> None:
+        product = self._products.get(product_id)
+        if product is None:
+            raise KeyError(f"Không tìm thấy sản phẩm: {product_id}")
+        allowed = {"name", "price", "quantity", "supplier"}
+        unknown = fields.keys() - allowed
+        if unknown:
+            raise ValueError(f"Trường không được hỗ trợ: {', '.join(sorted(unknown))}")
+        values = product.to_dict()
+        values.pop("type", None)
+        values.update(fields)
+        candidate = type(product)(**values)
+        if not candidate.is_valid():
+            raise ValueError("Sản phẩm cập nhật không hợp lệ")
+        self._products[product_id] = candidate
+
+    def delete_product(self, product_id: str) -> None:
+        product = self._products.get(product_id)
+        if product is None:
+            raise KeyError(f"Không tìm thấy sản phẩm: {product_id}")
+        if product.quantity > 0:
+            raise ValueError("Không thể xóa sản phẩm còn tồn kho")
+        del self._products[product_id]
+
+    def get_product_by_id(self, product_id: str) -> Product | None:
+        return self._products.get(product_id)
+
+    def get_all_products(self) -> list[Product]:
+        return list(self._products.values())
+
+    def replace_products(self, products: list[Product]) -> None:
+        replacement = InventoryManager(products)
+        self._products = replacement._products
+
+    def search_product(self, keyword: str, by: str = "name") -> list[Product]:
+        fields = {"id": "product_id", "name": "name", "supplier": "supplier"}
+        field = fields.get(by)
+        if field is None:
+            raise ValueError("Tìm kiếm theo id, name hoặc supplier")
+        needle = keyword.strip().casefold()
+        return [p for p in self._products.values() if needle in str(getattr(p, field)).casefold()]
+
+    def sort_products(self, by: str = "price", reverse: bool = False) -> list[Product]:
+        if by not in {"price", "quantity"}:
+            raise ValueError("Chỉ hỗ trợ sắp xếp theo price hoặc quantity")
+        return sorted(self._products.values(), key=lambda p: getattr(p, by), reverse=reverse)
