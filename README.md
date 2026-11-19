@@ -4,7 +4,7 @@
 
 - **Đề tài:** Chủ đề 04 – Quản lý kho sản phẩm bằng Python OOP.
 - **Hình thức:** Bài tập lớn nhóm 6 sinh viên, xây dựng ứng dụng quản lý kho sản phẩm chạy trên Console (CLI).
-- **Trạng thái dự án:** **Đang phát triển** — Đã hoàn thành hệ thống Menu Console hoàn chỉnh (menu chính, 7 menu con, kiểm tra đầu vào, xác nhận thoát an toàn) và bản đề xuất hợp đồng API trên nhánh `feature/main-menu`; các module nghiệp vụ (`models/`, `services/`, `storage/`, bộ unit test nghiệp vụ) vẫn đang được các thành viên phát triển.
+- **Trạng thái dự án:** **Đang phát triển** — Đã hoàn thành hệ thống Menu Console hoàn chỉnh trên nhánh `main`, phê duyệt Hợp đồng API chuẩn hóa v1.0 (Approved Design v1.0 – 40 quyết định thiết kế chính thức) và chuẩn hóa toàn bộ bộ tài liệu thiết kế UML (Use Case, Class, Activity, Sequence Diagram); các module nghiệp vụ (`models/`, `services/`, `storage/`, bộ unit test nghiệp vụ) đang được các thành viên triển khai trên các nhánh `feature/*`.
 
 ## Mục tiêu dự án
 
@@ -31,7 +31,7 @@
 | 2 | **Lâm** | Lập trình hướng đối tượng | `feature/product-models` | `models/product.py` (`Product`, `FoodProduct`, `ElectronicProduct`) |
 | 3 | **Sơn** | Quản lý sản phẩm | `feature/product-management` | `services/inventory_manager.py` (`InventoryManager`) |
 | 4 | **Chi** | Nghiệp vụ kho | `feature/stock-transactions` | `models/stock_transaction.py`, `services/stock_service.py` (`StockTransaction`, `StockService`) |
-| 5 | **Minh** | Nhà cung cấp & thống kê | `feature/supplier-reports` | `models/supplier.py`, `services/report_service.py` (`Supplier`, `ReportService`) |
+| 5 | **Minh** | Nhà cung cấp & thống kê | `feature/supplier-reports` | `models/supplier.py`, `services/supplier_service.py`, `services/report_service.py` (`Supplier`, `SupplierService`, `ReportService`) |
 | 6 | **Tú** | Lưu dữ liệu & kiểm thử | `feature/storage-testing` | `storage/storage.py`, `tests/` (JSON/CSV và bộ unit test) |
 
 > Xem chi tiết yêu cầu từng lớp, phương thức, tiêu chí nghiệm thu và checklist của 6 thành viên tại [`docs/TASK_ASSIGNMENT.md`](docs/TASK_ASSIGNMENT.md).
@@ -82,7 +82,11 @@ python-inventory-management-system/
 │   ├── README.md
 │   ├── TASK_ASSIGNMENT.md
 │   ├── uml/
-│   │   └── .gitkeep
+│   │   ├── UML_DESIGN.md
+│   │   ├── CLASS_DIAGRAM.md
+│   │   ├── USE_CASE_DIAGRAM.md
+│   │   ├── ACTIVITY_DIAGRAM.md
+│   │   └── SEQUENCE_DIAGRAM.md
 │   ├── flowcharts/
 │   │   ├── .gitkeep
 │   │   └── main_menu_flowchart.md
