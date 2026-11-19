@@ -1,22 +1,70 @@
-"""Module thống kê, báo cáo kho hàng và quản lý nghiệp vụ nhà cung cấp.
+"""Thống kê tồn kho, thực phẩm và bảo hành thiết bị."""
 
-Người phụ trách: Thành viên 5 - Minh (nhánh `feature/supplier-reports`).
+from __future__ import annotations
 
-Lớp dự kiến triển khai:
-- `ReportService` (và hỗ trợ quản lý danh sách `Supplier`).
+from datetime import date, datetime, timedelta
+from typing import Any
 
-Các chức năng dự kiến:
-- Quản lý thông tin nhà cung cấp (thêm, xem, tìm kiếm nhà cung cấp).
-- Tính tổng giá trị hàng tồn kho.
-- Thống kê danh sách sản phẩm sắp hết hàng (theo ngưỡng tồn kho).
-- Thống kê sản phẩm thực phẩm (`FoodProduct`) gần hết hạn sử dụng.
-- Thống kê thông tin bảo hành của các thiết bị điện tử (`ElectronicProduct`).
+from models.product import ElectronicProduct, FoodProduct
+from services.inventory_manager import InventoryManager
 
-TODO (Minh):
-- [ ] Cài đặt chức năng quản lý danh sách nhà cung cấp (`Supplier`).
-- [ ] Cài đặt lớp `ReportService` với các phương thức thống kê tổng giá trị tồn kho.
-- [ ] Cài đặt thống kê sản phẩm sắp hết hàng.
-- [ ] Cài đặt thống kê thực phẩm gần hết hạn.
-- [ ] Cài đặt thống kê thông tin bảo hành thiết bị điện tử.
-"""
 
+class ReportService:
+    def __init__(self, inventory_manager: InventoryManager, today: date | None = None) -> None:
+        self.inventory_manager = inventory_manager
+        self._today = today or date.today()
+
+    def get_total_inventory_value(self) -> float:
+        return sum(product.get_inventory_value() for product in self.inventory_manager.get_all_products())
+
+    def get_low_stock_products(self, threshold: int = 5):
+        if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 0:
+            raise ValueError("Ngưỡng tồn kho phải là số nguyên không âm")
+        return [p for p in self.inventory_manager.get_all_products() if p.quantity <= threshold]
+
+    def get_expiring_food_products(self, days: int = 7) -> list[FoodProduct]:
+        if isinstance(days, bool) or not isinstance(days, int) or days < 0:
+            raise ValueError("Số ngày phải là số nguyên không âm")
+        deadline = self._today + timedelta(days=days)
+        result = []
+        for product in self.inventory_manager.get_all_products():
+            if isinstance(product, FoodProduct) and self._expiry_date(product) <= deadline:
+                result.append(product)
+        return result
+
+    def check_food_expiry_status(self, product_id: str | None = None) -> list[dict[str, Any]]:
+        products = self.inventory_manager.get_all_products()
+        result = []
+        for product in products:
+            if not isinstance(product, FoodProduct) or (product_id and product.product_id != product_id):
+                continue
+            expiry = self._expiry_date(product)
+            result.append({
+                "product_id": product.product_id,
+                "name": product.name,
+                "expiry_date": expiry.isoformat(),
+                "status": "expired" if expiry < self._today else "valid",
+                "days_remaining": (expiry - self._today).days,
+            })
+        return result
+
+    def get_warranty_summary(self, product_id: str | None = None) -> list[dict[str, Any]]:
+        result = []
+        for product in self.inventory_manager.get_all_products():
+            if isinstance(product, ElectronicProduct) and (product_id is None or product.product_id == product_id):
+                result.append({
+                    "product_id": product.product_id,
+                    "name": product.name,
+                    "warranty_months": product.warranty_months,
+                })
+        return result
+
+    @staticmethod
+    def _expiry_date(product: FoodProduct) -> date:
+        value = product.expiry_date
+        if isinstance(value, date):
+            return value
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Ngày hết hạn của {product.product_id} phải theo YYYY-MM-DD") from exc
