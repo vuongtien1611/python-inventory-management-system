@@ -16,11 +16,18 @@ from cli.input_helpers import (
     UserExitSignal,
     confirm_action,
     notify_not_implemented,
+    read_input_safe,
     read_menu_choice,
     read_sort_order,
 )
+from models.product import Product
+from services.inventory_manager import InventoryManager
+from services.report_service import ReportService
+from services.stock_service import StockService
+from storage import storage as storage_module
 
 MenuOption = tuple[int, str, Callable[[], None]]
+_ACTION_FAILED = object()
 
 
 @dataclass
@@ -196,17 +203,81 @@ class InventoryCLI:
             return False
         return True
 
+    @staticmethod
+    def _read_int(prompt: str, default: int | None = None) -> int:
+        while True:
+            raw = read_input_safe(prompt)
+            if not raw and default is not None:
+                return default
+            try:
+                return int(raw)
+            except ValueError:
+                print("Vui lòng nhập một số nguyên hợp lệ.")
+
+    @staticmethod
+    def _run_action(action: Callable[[], Any]) -> Any:
+        try:
+            return action()
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            print(f"Lỗi: {exc}")
+            return _ACTION_FAILED
+
+    @staticmethod
+    def _print_products(products: list[Any]) -> None:
+        if not products:
+            print("Không có dữ liệu phù hợp.")
+            return
+        for product in products:
+            print(product)
+
     def _handle_add_product(self) -> None:
-        self._require_service(self.context.inventory_manager, "Thêm sản phẩm")
+        manager = self.context.inventory_manager
+        if not self._require_service(manager, "Thêm sản phẩm"):
+            return
+        product_id = read_input_safe("Mã sản phẩm: ")
+        name = read_input_safe("Tên sản phẩm: ")
+        price = self._read_int("Đơn giá: ")
+        quantity = self._read_int("Số lượng tồn: ")
+        supplier = read_input_safe("Nhà cung cấp: ")
+        result = self._run_action(lambda: manager.add_product(Product(product_id, name, price, quantity, supplier)))
+        if result is not _ACTION_FAILED and manager.get_product_by_id(product_id):
+            print("Đã thêm sản phẩm.")
 
     def _handle_update_product(self) -> None:
-        self._require_service(self.context.inventory_manager, "Cập nhật sản phẩm")
+        manager = self.context.inventory_manager
+        if not self._require_service(manager, "Cập nhật sản phẩm"):
+            return
+        product_id = read_input_safe("Mã sản phẩm cần cập nhật: ")
+        product = manager.get_product_by_id(product_id)
+        if product is None:
+            print("Không tìm thấy sản phẩm.")
+            return
+        name = read_input_safe(f"Tên [{product.name}]: ")
+        price_raw = read_input_safe(f"Đơn giá [{product.price}]: ")
+        quantity_raw = read_input_safe(f"Số lượng [{product.quantity}]: ")
+        supplier = read_input_safe(f"Nhà cung cấp [{product.supplier}]: ")
+        fields: dict[str, Any] = {}
+        if name: fields["name"] = name
+        try:
+            if price_raw: fields["price"] = int(price_raw)
+            if quantity_raw: fields["quantity"] = int(quantity_raw)
+        except ValueError:
+            print("Đơn giá và số lượng phải là số nguyên.")
+            return
+        if supplier: fields["supplier"] = supplier
+        if self._run_action(lambda: manager.update_product(product_id, **fields)) is not _ACTION_FAILED:
+            print("Đã cập nhật sản phẩm.")
 
     def _handle_delete_product(self) -> None:
-        self._require_service(self.context.inventory_manager, "Xóa sản phẩm")
+        manager = self.context.inventory_manager
+        if self._require_service(manager, "Xóa sản phẩm"):
+            product_id = read_input_safe("Mã sản phẩm cần xóa: ")
+            if self._run_action(lambda: manager.delete_product(product_id)) is not _ACTION_FAILED:
+                print("Đã xóa sản phẩm.")
 
     def _handle_list_products(self) -> None:
-        self._require_service(self.context.inventory_manager, "Hiển thị danh sách sản phẩm")
+        if self._require_service(self.context.inventory_manager, "Hiển thị danh sách sản phẩm"):
+            self._print_products(self.context.inventory_manager.get_all_products())
 
     def _handle_add_supplier(self) -> None:
         self._require_service(self.context.report_service, "Thêm nhà cung cấp")
@@ -221,22 +292,43 @@ class InventoryCLI:
         self._require_service(self.context.report_service, "Hiển thị nhà cung cấp")
 
     def _handle_import_stock(self) -> None:
-        self._require_service(self.context.stock_service, "Nhập kho")
+        service = self.context.stock_service
+        if self._require_service(service, "Nhập kho"):
+            product_id = read_input_safe("Mã sản phẩm: ")
+            quantity = self._read_int("Số lượng nhập: ")
+            note = read_input_safe("Ghi chú: ")
+            result = self._run_action(lambda: service.import_stock(product_id, quantity, note))
+            if result is not _ACTION_FAILED: print("Đã nhập kho.")
 
     def _handle_export_stock(self) -> None:
-        self._require_service(self.context.stock_service, "Xuất kho")
+        service = self.context.stock_service
+        if self._require_service(service, "Xuất kho"):
+            product_id = read_input_safe("Mã sản phẩm: ")
+            quantity = self._read_int("Số lượng xuất: ")
+            note = read_input_safe("Ghi chú: ")
+            result = self._run_action(lambda: service.export_stock(product_id, quantity, note))
+            if result is not _ACTION_FAILED: print("Đã xuất kho.")
 
     def _handle_transaction_history(self) -> None:
-        self._require_service(self.context.stock_service, "Xem lịch sử giao dịch")
+        service = self.context.stock_service
+        if self._require_service(service, "Xem lịch sử giao dịch"):
+            for transaction in service.get_transaction_history(): print(transaction)
 
     def _handle_search_by_id(self) -> None:
-        self._require_service(self.context.inventory_manager, "Tìm theo mã sản phẩm")
+        self._search("id", "Tìm theo mã sản phẩm")
 
     def _handle_search_by_name(self) -> None:
-        self._require_service(self.context.inventory_manager, "Tìm theo tên sản phẩm")
+        self._search("name", "Tìm theo tên sản phẩm")
 
     def _handle_search_by_supplier(self) -> None:
-        self._require_service(self.context.inventory_manager, "Tìm theo nhà cung cấp")
+        self._search("supplier", "Tìm theo nhà cung cấp")
+
+    def _search(self, by: str, label: str) -> None:
+        manager = self.context.inventory_manager
+        if self._require_service(manager, label):
+            keyword = read_input_safe("Từ khóa: ")
+            products = self._run_action(lambda: manager.search_product(keyword, by=by))
+            if products is not _ACTION_FAILED: self._print_products(products)
 
     def _handle_sort_by_price(self) -> None:
         self._handle_sort_products("Sắp xếp sản phẩm theo giá")
@@ -251,37 +343,68 @@ class InventoryCLI:
             print("Đã hủy thao tác sắp xếp.")
             return
         order_text = "tăng dần" if order == "asc" else "giảm dần"
-        self._require_service(
-            self.context.inventory_manager,
-            f"{feature_label} ({order_text})",
-        )
+        manager = self.context.inventory_manager
+        if not self._require_service(manager, f"{feature_label} ({order_text})"):
+            return
+        by = "quantity" if "số lượng" in feature_label.lower() else "price"
+        products = self._run_action(lambda: manager.sort_products(by=by, reverse=(order == "desc")))
+        if products is not _ACTION_FAILED: self._print_products(products)
 
     def _handle_total_inventory_value(self) -> None:
-        self._require_service(self.context.report_service, "Tổng giá trị tồn kho")
+        service = self.context.report_service
+        if self._require_service(service, "Tổng giá trị tồn kho"):
+            value = self._run_action(service.get_total_inventory_value)
+            if value is not _ACTION_FAILED: print(f"Tổng giá trị tồn kho: {value:,.0f} VNĐ")
 
     def _handle_low_stock_products(self) -> None:
-        self._require_service(self.context.report_service, "Sản phẩm sắp hết hàng")
+        service = self.context.report_service
+        if self._require_service(service, "Sản phẩm sắp hết hàng"):
+            threshold = self._read_int("Ngưỡng tồn kho [5]: ", 5)
+            products = self._run_action(lambda: service.get_low_stock_products(threshold))
+            if products is not _ACTION_FAILED: self._print_products(products)
 
     def _handle_expiring_food_report(self) -> None:
-        self._require_service(self.context.report_service, "Thực phẩm gần hết hạn")
+        service = self.context.report_service
+        if self._require_service(service, "Thực phẩm gần hết hạn"):
+            days = self._read_int("Số ngày sắp hết hạn [7]: ", 7)
+            products = self._run_action(lambda: service.get_expiring_food_products(days))
+            if products is not _ACTION_FAILED: self._print_products(products)
 
     def _handle_check_food_expiry(self) -> None:
-        self._require_service(self.context.report_service, "Kiểm tra hạn sử dụng thực phẩm")
+        service = self.context.report_service
+        if self._require_service(service, "Kiểm tra hạn sử dụng thực phẩm"):
+            product_id = read_input_safe("Mã sản phẩm (Enter để xem tất cả): ") or None
+            results = self._run_action(lambda: service.check_food_expiry_status(product_id))
+            if results is not _ACTION_FAILED:
+                for item in results: print(item)
 
     def _handle_check_warranty(self) -> None:
-        self._require_service(
-            self.context.report_service,
-            "Kiểm tra thời hạn bảo hành thiết bị điện tử",
-        )
+        service = self.context.report_service
+        if self._require_service(service, "Kiểm tra thời hạn bảo hành thiết bị điện tử"):
+            product_id = read_input_safe("Mã sản phẩm (Enter để xem tất cả): ") or None
+            results = self._run_action(lambda: service.get_warranty_summary(product_id))
+            if results is not _ACTION_FAILED:
+                for item in results: print(item)
 
     def _handle_save_json(self) -> None:
-        self._require_service(self.context.storage, "Lưu dữ liệu JSON")
+        if self._require_service(self.context.storage, "Lưu dữ liệu JSON"):
+            path = read_input_safe("Đường dẫn JSON [data/products.json]: ") or "data/products.json"
+            result = self._run_action(lambda: self.context.storage.save_to_json(self.context.inventory_manager.get_all_products(), path))
+            if result is not _ACTION_FAILED: print(f"Đã lưu dữ liệu JSON: {path}")
 
     def _handle_load_json(self) -> None:
-        self._require_service(self.context.storage, "Đọc dữ liệu JSON")
+        if self._require_service(self.context.storage, "Đọc dữ liệu JSON"):
+            path = read_input_safe("Đường dẫn JSON [data/products.json]: ") or "data/products.json"
+            products = self._run_action(lambda: self.context.storage.load_from_json(path))
+            if products is not _ACTION_FAILED:
+                self.context.inventory_manager.replace_products(products)
+                print(f"Đã nạp {len(products)} sản phẩm.")
 
     def _handle_export_csv(self) -> None:
-        self._require_service(self.context.storage, "Xuất báo cáo CSV")
+        if self._require_service(self.context.storage, "Xuất báo cáo CSV"):
+            path = read_input_safe("Đường dẫn CSV [data/inventory_report.csv]: ") or "data/inventory_report.csv"
+            result = self._run_action(lambda: self.context.storage.export_to_csv(self.context.inventory_manager.get_all_products(), path))
+            if result is not _ACTION_FAILED: print(f"Đã xuất CSV: {path}")
 
 
 def build_app_context() -> AppContext:
@@ -290,7 +413,17 @@ def build_app_context() -> AppContext:
     Khi các module trong `services/` và `storage/` hoàn thiện và thống nhất
     theo `docs/API_CONTRACT.md`, các đối tượng service sẽ được nạp tại đây.
     """
-    return AppContext()
+    manager = InventoryManager()
+    try:
+        manager.replace_products(storage_module.load_from_json())
+    except (OSError, ValueError) as exc:
+        print(f"Không thể nạp dữ liệu kho: {exc}")
+    return AppContext(
+        inventory_manager=manager,
+        stock_service=StockService(manager),
+        report_service=ReportService(manager),
+        storage=storage_module,
+    )
 
 
 def main() -> None:
