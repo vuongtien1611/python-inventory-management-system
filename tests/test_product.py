@@ -13,6 +13,7 @@ TODO (Tú):
 
 import importlib
 import unittest
+from models.product import ElectronicProduct, FoodProduct, Product
 
 
 class TestProjectBootstrap(unittest.TestCase):
@@ -42,6 +43,38 @@ class TestProjectBootstrap(unittest.TestCase):
         from cli.menu import main
 
         self.assertTrue(callable(main))
+
+
+class TestProductModels(unittest.TestCase):
+    def test_product_rejects_empty_id(self):
+        with self.assertRaises(ValueError):
+            Product("", "Item", 1)
+
+    def test_product_rejects_negative_price(self):
+        with self.assertRaises(ValueError):
+            Product("P1", "Item", -1)
+
+    def test_product_rejects_negative_quantity(self):
+        with self.assertRaises(ValueError):
+            Product("P1", "Item", 1, -1)
+
+    def test_inventory_value_is_price_times_quantity(self):
+        self.assertEqual(Product("P1", "Item", 25, 4).get_inventory_value(), 100)
+
+    def test_product_serialization_includes_type(self):
+        self.assertEqual(Product("P1", "Item", 25).to_dict()["type"], "Product")
+
+    def test_food_product_serializes_expiry(self):
+        food = FoodProduct("F1", "Milk", 10, 2, "Dairy Co", "2026-12-01")
+        self.assertEqual(food.to_dict()["expiry_date"], "2026-12-01")
+
+    def test_electronic_product_serializes_warranty(self):
+        device = ElectronicProduct("E1", "Mouse", 20, 1, "Tech Co", 24)
+        self.assertEqual(device.to_dict()["warranty_months"], 24)
+
+    def test_subclass_string_includes_specialized_field(self):
+        food = FoodProduct("F1", "Milk", 10, 2, "Dairy Co", "2026-12-01")
+        self.assertIn("2026-12-01", str(food))
 
 
 if __name__ == "__main__":
