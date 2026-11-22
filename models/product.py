@@ -1,17 +1,10 @@
-"""Module định nghĩa các lớp mô hình sản phẩm trong kho hàng."""
+"""Module định nghĩa các lớp mô hình sản phẩm trong kho hàng (Design Baseline v1.0)."""
+
+from __future__ import annotations
 
 from datetime import date, datetime
 import math
-
-
-def _is_iso_date(value: object) -> bool:
-    if not isinstance(value, str):
-        return False
-
-    try:
-        return date.fromisoformat(value).isoformat() == value
-    except ValueError:
-        return False
+from typing import Any
 
 
 class Product:
@@ -23,14 +16,22 @@ class Product:
         name: str,
         price: float,
         quantity: int = 0,
-        supplier: str = ""
+        supplier_id: str = "",
+        supplier: str | None = None,
     ) -> None:
-        # Gán thông qua setter để kiểm tra dữ liệu ngay khi khởi tạo
         self.product_id = product_id
         self.name = name
         self.price = price
-        self.quantity = quantity
-        self.supplier = supplier
+
+        # Khởi tạo số lượng nội bộ qua validation (chỉ đọc từ bên ngoài, không có public setter)
+        if isinstance(quantity, bool) or not isinstance(quantity, int):
+            raise TypeError("Số lượng phải là số nguyên.")
+        if quantity < 0:
+            raise ValueError("Số lượng không được âm.")
+        self._quantity = quantity
+
+        actual_supplier = supplier if (supplier is not None and not supplier_id) else supplier_id
+        self.supplier_id = actual_supplier
 
     # ---------- PRODUCT ID ----------
     @property
@@ -41,11 +42,9 @@ class Product:
     def product_id(self, value: str) -> None:
         if not isinstance(value, str):
             raise TypeError("Mã sản phẩm phải là chuỗi.")
-
         value = value.strip()
         if not value:
             raise ValueError("Mã sản phẩm không được để trống.")
-
         self._product_id = value
 
     # ---------- NAME ----------
@@ -57,11 +56,9 @@ class Product:
     def name(self, value: str) -> None:
         if not isinstance(value, str):
             raise TypeError("Tên sản phẩm phải là chuỗi.")
-
         value = value.strip()
         if not value:
             raise ValueError("Tên sản phẩm không được để trống.")
-
         self._name = value
 
     # ---------- PRICE ----------
@@ -73,73 +70,93 @@ class Product:
     def price(self, value: float) -> None:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise TypeError("Giá sản phẩm phải là số.")
-
         if not math.isfinite(value):
             raise ValueError("Giá sản phẩm phải là số hữu hạn.")
-
         if value < 0:
             raise ValueError("Giá sản phẩm không được âm.")
-
         self._price = float(value)
 
-    # ---------- QUANTITY ----------
+    # ---------- QUANTITY (READ-ONLY PROPERTY - Q08) ----------
     @property
     def quantity(self) -> int:
+        """Số lượng tồn kho (chỉ đọc, cấm sửa trực tiếp qua setter)."""
         return self._quantity
 
-    @quantity.setter
-    def quantity(self, value: int) -> None:
-        if isinstance(value, bool) or not isinstance(value, int):
-            raise TypeError("Số lượng phải là số nguyên.")
+    # ---------- SUPPLIER ID (Q13) ----------
+    @property
+    def supplier_id(self) -> str:
+        return self._supplier_id
 
-        if value < 0:
-            raise ValueError("Số lượng không được âm.")
+    @supplier_id.setter
+    def supplier_id(self, value: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError("Mã nhà cung cấp phải là chuỗi.")
+        self._supplier_id = value.strip()
 
-        self._quantity = value
-
-    # ---------- SUPPLIER ----------
+    # Thuộc tính tương thích ngược cho các đoạn mã cũ dùng .supplier
     @property
     def supplier(self) -> str:
-        return self._supplier
+        return self._supplier_id
 
     @supplier.setter
     def supplier(self, value: str) -> None:
-        if not isinstance(value, str):
-            raise TypeError("Nhà cung cấp phải là chuỗi.")
+        self.supplier_id = value
 
-        self._supplier = value.strip()
+    # ---------- STOCK MUTATION METHODS (CHỈ DÀNH CHO STOCKSERVICE - Q08) ----------
+    def increase_stock(self, amount: int) -> None:
+        """Tăng số lượng tồn kho thêm amount (amount nguyên dương, từ chối bool)."""
+        if isinstance(amount, bool) or not isinstance(amount, int):
+            raise TypeError("Số lượng tăng phải là số nguyên.")
+        if amount <= 0:
+            raise ValueError("Số lượng tăng phải là số nguyên dương (> 0).")
+        self._quantity += amount
+
+    def decrease_stock(self, amount: int) -> None:
+        """Giảm số lượng tồn kho đi amount (amount nguyên dương, không vượt quá tồn hiện tại)."""
+        if isinstance(amount, bool) or not isinstance(amount, int):
+            raise TypeError("Số lượng giảm phải là số nguyên.")
+        if amount <= 0:
+            raise ValueError("Số lượng giảm phải là số nguyên dương (> 0).")
+        if amount > self._quantity:
+            raise ValueError(
+                f"Số lượng giảm ({amount}) vượt quá tồn kho hiện tại ({self._quantity})."
+            )
+        self._quantity -= amount
 
     # ---------- VALIDATION ----------
     def is_valid(self) -> bool:
-        """Kiểm tra dữ liệu hiện tại của sản phẩm."""
+        """Kiểm tra tính hợp lệ dữ liệu của sản phẩm."""
         return (
-            isinstance(self._product_id, str)
+            isinstance(getattr(self, "_product_id", None), str)
             and bool(self._product_id.strip())
-            and isinstance(self._name, str)
+            and isinstance(getattr(self, "_name", None), str)
             and bool(self._name.strip())
-            and isinstance(self._price, float)
+            and isinstance(getattr(self, "_price", None), float)
             and math.isfinite(self._price)
             and self._price >= 0
-            and isinstance(self._quantity, int)
+            and isinstance(getattr(self, "_quantity", None), int)
             and not isinstance(self._quantity, bool)
             and self._quantity >= 0
-            and isinstance(self._supplier, str)
+            and isinstance(getattr(self, "_supplier_id", None), str)
         )
 
-    # ---------- INVENTORY VALUE ----------
+    # ---------- INVENTORY VALUE (Q07, Q32) ----------
     def get_inventory_value(self) -> float:
-        """Tính tổng giá trị tồn kho của sản phẩm."""
-        return self.price * self.quantity
+        """Tính tổng giá trị tồn kho của sản phẩm (làm tròn 2 chữ số)."""
+        return round(self.price * self.quantity, 2)
 
-    # ---------- STRING ----------
+    # ---------- STRING REPRESENTATION ----------
     def __str__(self) -> str:
         return (
-            f"{self.product_id}: {self.name} "
-            f"(price={self.price}, qty={self.quantity}, supplier={self.supplier})"
+            f"Mã SP: {self.product_id} | "
+            f"Tên: {self.name} | "
+            f"Giá: {self.price:,.0f} đ | "
+            f"Tồn kho: {self.quantity} | "
+            f"NCC: {self.supplier_id or '(chưa gán)'}"
         )
 
-    # ---------- CONVERT TO DICTIONARY ----------
-    def to_dict(self) -> dict:
+    # ---------- CONVERT TO DICTIONARY (Q33) ----------
+    def to_dict(self) -> dict[str, Any]:
         """Chuyển đối tượng thành dictionary để lưu JSON."""
         return {
             "type": "Product",
@@ -147,102 +164,95 @@ class Product:
             "name": self.name,
             "price": self.price,
             "quantity": self.quantity,
-            "supplier": self.supplier
+            "supplier_id": self.supplier_id,
+            "supplier": self.supplier_id,  # Tương thích trường cũ
         }
 
 
 class FoodProduct(Product):
-    """Lớp sản phẩm thực phẩm, kế thừa từ Product."""
+    """Lớp sản phẩm thực phẩm có hạn sử dụng (kế thừa từ Product)."""
 
     def __init__(
         self,
         product_id: str,
         name: str,
         price: float,
-        quantity: int,
-        supplier: str,
-        expiry_date: str
+        quantity: int = 0,
+        supplier_id: str = "",
+        expiry_date: str | date = "",
+        supplier: str | None = None,
     ) -> None:
-        if _is_iso_date(supplier) and not _is_iso_date(expiry_date):
-            supplier, expiry_date = expiry_date, supplier
-
-        super().__init__(product_id, name, price, quantity, supplier)
+        super().__init__(product_id, name, price, quantity, supplier_id, supplier=supplier)
         self.expiry_date = expiry_date
 
     @property
-    def expiry_date(self) -> str:
+    def expiry_date(self) -> date:
         return self._expiry_date
 
     @expiry_date.setter
-    def expiry_date(self, value: str) -> None:
+    def expiry_date(self, value: str | date) -> None:
+        if isinstance(value, date):
+            self._expiry_date = value
+            return
         if not isinstance(value, str):
-            raise TypeError("Hạn sử dụng phải có dạng chuỗi YYYY-MM-DD.")
+            raise TypeError("Hạn sử dụng phải có dạng chuỗi YYYY-MM-DD hoặc datetime.date.")
+
+        value = value.strip()
+        if not value:
+            raise ValueError("Ngày hết hạn không được để trống.")
 
         try:
-            parsed_date = datetime.strptime(value, "%Y-%m-%d").date()
+            parsed = datetime.strptime(value, "%Y-%m-%d").date()
         except ValueError:
-            raise ValueError(
-                "Ngày hết hạn không hợp lệ. Hãy nhập theo dạng YYYY-MM-DD."
-            )
+            raise ValueError("Ngày hết hạn không hợp lệ. Hãy nhập theo dạng YYYY-MM-DD.")
 
-        # Đảm bảo ngày được nhập đúng định dạng ISO
-        if parsed_date.isoformat() != value:
+        if parsed.isoformat() != value:
             raise ValueError("Ngày hết hạn phải có dạng YYYY-MM-DD.")
+        self._expiry_date = parsed
 
-        self._expiry_date = value
+    def is_expired(self, current_date: date | None = None) -> bool:
+        """Trả về True nếu sản phẩm đã quá hạn tính đến current_date (mặc định hôm nay)."""
+        ref_date = current_date if current_date is not None else date.today()
+        return self.expiry_date < ref_date
 
-    def is_expired(self) -> bool:
-        """Trả về True nếu sản phẩm đã quá hạn."""
-        expiry = date.fromisoformat(self.expiry_date)
-        return expiry < date.today()
+    def days_until_expiry(self, current_date: date | None = None) -> int:
+        """Số ngày còn lại đến hạn sử dụng tính từ current_date (mặc định hôm nay)."""
+        ref_date = current_date if current_date is not None else date.today()
+        return (self.expiry_date - ref_date).days
 
     def is_valid(self) -> bool:
         """Kiểm tra thông tin sản phẩm thực phẩm."""
-        if not super().is_valid():
-            return False
-
-        try:
-            datetime.strptime(self.expiry_date, "%Y-%m-%d")
-            return True
-        except ValueError:
-            return False
+        return super().is_valid() and isinstance(getattr(self, "_expiry_date", None), date)
 
     def __str__(self) -> str:
+        expiry_str = self.expiry_date.isoformat()
+        status = " (ĐÃ HẾT HẠN)" if self.is_expired() else ""
         return (
             f"{super().__str__()} | "
-            f"Hạn sử dụng: {self.expiry_date}"
+            f"HSD: {expiry_str}{status}"
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         data["type"] = "FoodProduct"
-        data["expiry_date"] = self.expiry_date
+        data["expiry_date"] = self.expiry_date.isoformat()
         return data
 
 
 class ElectronicProduct(Product):
-    """Lớp sản phẩm điện tử, kế thừa từ Product."""
+    """Lớp sản phẩm điện tử có thời gian bảo hành (kế thừa từ Product)."""
 
     def __init__(
         self,
         product_id: str,
         name: str,
         price: float,
-        quantity: int,
-        supplier: str | int,
-        warranty_months: int | str
+        quantity: int = 0,
+        supplier_id: str = "",
+        warranty_months: int = 0,
+        supplier: str | None = None,
     ) -> None:
-        if (
-            isinstance(supplier, int)
-            and not isinstance(supplier, bool)
-            and isinstance(warranty_months, str)
-        ):
-            supplier, warranty_months = warranty_months, supplier
-
-        if not isinstance(supplier, str) or not isinstance(warranty_months, int):
-            raise TypeError("Nhà cung cấp phải là chuỗi và thời gian bảo hành phải là số nguyên.")
-
-        super().__init__(product_id, name, price, quantity, supplier)
+        super().__init__(product_id, name, price, quantity, supplier_id, supplier=supplier)
         self.warranty_months = warranty_months
 
     @property
@@ -253,19 +263,17 @@ class ElectronicProduct(Product):
     def warranty_months(self, value: int) -> None:
         if isinstance(value, bool) or not isinstance(value, int):
             raise TypeError("Thời gian bảo hành phải là số nguyên.")
-
         if value < 0:
             raise ValueError("Thời gian bảo hành không được âm.")
-
         self._warranty_months = value
 
     def is_valid(self) -> bool:
         """Kiểm tra thông tin sản phẩm điện tử."""
         return (
             super().is_valid()
-            and isinstance(self.warranty_months, int)
-            and not isinstance(self.warranty_months, bool)
-            and self.warranty_months >= 0
+            and isinstance(getattr(self, "_warranty_months", None), int)
+            and not isinstance(self._warranty_months, bool)
+            and self._warranty_months >= 0
         )
 
     def __str__(self) -> str:
@@ -274,7 +282,7 @@ class ElectronicProduct(Product):
             f"Bảo hành: {self.warranty_months} tháng"
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         data["type"] = "ElectronicProduct"
         data["warranty_months"] = self.warranty_months
