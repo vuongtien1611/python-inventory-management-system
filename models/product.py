@@ -4,6 +4,16 @@ from datetime import date, datetime
 import math
 
 
+def _is_iso_date(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
 class Product:
     """Lớp cơ sở đại diện cho một sản phẩm trong kho."""
 
@@ -12,7 +22,7 @@ class Product:
         product_id: str,
         name: str,
         price: float,
-        quantity: int,
+        quantity: int = 0,
         supplier: str = ""
     ) -> None:
         # Gán thông qua setter để kiểm tra dữ liệu ngay khi khởi tạo
@@ -124,11 +134,8 @@ class Product:
     # ---------- STRING ----------
     def __str__(self) -> str:
         return (
-            f"Mã sản phẩm: {self.product_id} | "
-            f"Tên: {self.name} | "
-            f"Giá: {self.price:,.0f} | "
-            f"Số lượng: {self.quantity} | "
-            f"Nhà cung cấp: {self.supplier}"
+            f"{self.product_id}: {self.name} "
+            f"(price={self.price}, qty={self.quantity}, supplier={self.supplier})"
         )
 
     # ---------- CONVERT TO DICTIONARY ----------
@@ -153,9 +160,12 @@ class FoodProduct(Product):
         name: str,
         price: float,
         quantity: int,
-        expiry_date: str,
-        supplier: str = ""
+        supplier: str,
+        expiry_date: str
     ) -> None:
+        if _is_iso_date(supplier) and not _is_iso_date(expiry_date):
+            supplier, expiry_date = expiry_date, supplier
+
         super().__init__(product_id, name, price, quantity, supplier)
         self.expiry_date = expiry_date
 
@@ -219,9 +229,19 @@ class ElectronicProduct(Product):
         name: str,
         price: float,
         quantity: int,
-        warranty_months: int,
-        supplier: str = ""
+        supplier: str | int,
+        warranty_months: int | str
     ) -> None:
+        if (
+            isinstance(supplier, int)
+            and not isinstance(supplier, bool)
+            and isinstance(warranty_months, str)
+        ):
+            supplier, warranty_months = warranty_months, supplier
+
+        if not isinstance(supplier, str) or not isinstance(warranty_months, int):
+            raise TypeError("Nhà cung cấp phải là chuỗi và thời gian bảo hành phải là số nguyên.")
+
         super().__init__(product_id, name, price, quantity, supplier)
         self.warranty_months = warranty_months
 
