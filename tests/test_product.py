@@ -68,9 +68,23 @@ class TestProductModels(unittest.TestCase):
         food = FoodProduct("F1", "Milk", 10, 2, "Dairy Co", "2026-12-01")
         self.assertEqual(food.to_dict()["expiry_date"], "2026-12-01")
 
+    def test_food_product_accepts_expiry_before_supplier(self):
+        food = FoodProduct("F1", "Milk", 10, 2, "2026-12-01", "Dairy Co")
+        self.assertEqual(food.supplier, "Dairy Co")
+        self.assertEqual(food.expiry_date, "2026-12-01")
+
     def test_electronic_product_serializes_warranty(self):
         device = ElectronicProduct("E1", "Mouse", 20, 1, "Tech Co", 24)
         self.assertEqual(device.to_dict()["warranty_months"], 24)
+
+    def test_electronic_product_accepts_warranty_before_supplier(self):
+        device = ElectronicProduct("E1", "Mouse", 20, 1, 24, "Tech Co")
+        self.assertEqual(device.supplier, "Tech Co")
+        self.assertEqual(device.warranty_months, 24)
+
+    def test_food_product_rejects_invalid_expiry_format(self):
+        with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
+            FoodProduct("F1", "Milk", 10, 2, "Dairy Co", "20/11/2026")
 
     def test_subclass_string_includes_specialized_field(self):
         food = FoodProduct("F1", "Milk", 10, 2, "Dairy Co", "2026-12-01")

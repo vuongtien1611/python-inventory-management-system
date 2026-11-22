@@ -47,7 +47,9 @@ class TestReportService(unittest.TestCase):
             self.service.get_expiring_food_products(-1)
 
     def test_invalid_expiry_format_is_reported(self):
-        inventory = InventoryManager([FoodProduct("F3", "Bad date", 1, 1, "Dairy", "20/11/2026")])
+        product = FoodProduct("F3", "Bad date", 1, 1, "Dairy", "2026-11-20")
+        inventory = InventoryManager([product])
+        product._expiry_date = "20/11/2026"
         with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
             ReportService(inventory, today=date(2026, 11, 19)).check_food_expiry_status()
 
