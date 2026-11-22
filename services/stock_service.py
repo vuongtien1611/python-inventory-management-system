@@ -1,26 +1,66 @@
-"""Module xử lý nghiệp vụ nhập kho, xuất kho và theo dõi lịch sử giao dịch.
+"""Service handling stock import/export and transaction history.
 
-Người phụ trách: Thành viên 4 - Chi (nhánh `feature/stock-transactions`).
-
-Lớp dự kiến triển khai:
-- `StockService`
-
-Các phương thức dự kiến:
-- `import_stock()`
-- `export_stock()`
-- `get_transaction_history()`
-
-Yêu cầu nghiệp vụ:
-- Nhập kho làm tăng số lượng tồn kho của sản phẩm tương ứng.
-- Xuất kho làm giảm số lượng tồn kho của sản phẩm tương ứng.
-- Không cho phép xuất kho vượt quá số lượng tồn hiện tại.
-- Không chấp nhận số lượng giao dịch không hợp lệ (<= 0 hoặc sai kiểu dữ liệu).
-- Lưu đầy đủ thông tin mỗi giao dịch nhập/xuất thông qua `StockTransaction`.
-
-TODO (Chi):
-- [ ] Cài đặt lớp `StockService` liên kết với danh sách sản phẩm / `InventoryManager`.
-- [ ] Cài đặt `import_stock()` kiểm tra số lượng hợp lệ, tăng tồn kho và ghi nhận `StockTransaction`.
-- [ ] Cài đặt `export_stock()` kiểm tra tồn kho đủ trước khi trừ số lượng và ghi nhận giao dịch.
-- [ ] Cài đặt `get_transaction_history()` để truy vấn toàn bộ hoặc lọc lịch sử giao dịch.
+Implemented to satisfy integration tests (run_integration_tests.py) and CLI.
 """
 
+from __future__ import annotations
+
+from typing import List, Dict, Any
+
+from .inventory_manager import InventoryManager
+from models.product import Product
+
+
+class StockService:
+    """Manage stock movements for products.
+
+    Attributes:
+        inventory: InventoryManager instance used to locate products.
+        _history: List of transaction dicts.
+    """
+
+    def __init__(self, inventory: Any):
+        self.inventory = inventory
+        self.inventory_manager = inventory
+        self._history: List[Dict[str, Any]] = []
+
+    # ---- Helper ----
+    def _record(self, product_id: str, qty: int, note: str, kind: str) -> Dict[str, Any]:
+        transaction = {
+            "product_id": product_id,
+            "qty": qty,
+            "note": note,
+            "type": kind,
+        }
+        self._history.append(transaction)
+        return transaction
+
+    # ---- API required by integration test ----
+    def import_stock(self, product_id: str, qty: int, note: str = "") -> Dict[str, Any]:
+        self._validate_quantity(qty)
+        product = self.inventory.get_product_by_id(product_id)
+        if product is None:
+            raise ValueError(f"Không tìm thấy sản phẩm {product_id}")
+        # increase quantity
+        product.quantity += qty
+        return self._record(product_id, qty, note, "import")
+
+    def export_stock(self, product_id: str, qty: int, note: str = "") -> Dict[str, Any]:
+        self._validate_quantity(qty)
+        product = self.inventory.get_product_by_id(product_id)
+        if product is None:
+            raise ValueError(f"Không tìm thấy sản phẩm {product_id}")
+        if qty > product.quantity:
+            raise ValueError("Không đủ tồn kho để xuất")
+        product.quantity -= qty
+        return self._record(product_id, qty, note, "export")
+
+    @staticmethod
+    def _validate_quantity(qty: int) -> None:
+        if isinstance(qty, bool) or not isinstance(qty, int) or qty <= 0:
+            raise ValueError("Số lượng giao dịch phải là số nguyên dương")
+
+    def get_transaction_history(self, product_id: str | None = None) -> List[Dict[str, Any]]:
+        if product_id is None:
+            return list(self._history)
+        return [h for h in self._history if h["product_id"] == product_id]
